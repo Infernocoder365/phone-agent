@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 
 import twilio from 'twilio';
+import OpenAI from 'openai';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ if (!OPENAI_API_KEY || !ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) {
 }
 
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 const fastify = Fastify({ logger: true });
 
@@ -116,6 +118,34 @@ fastify.all('/incoming', async (request, reply) => {
 </Response>`;
 
   reply.type('text/xml').send(twiml);
+});
+
+// Twilio Incoming SMS Webhook
+fastify.post('/incoming-sms', async (request, reply) => {
+  const { Body, From } = request.body;
+  console.log(`Received SMS from ${From}: ${Body}`);
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5-pro", 
+      messages: [
+          { role: "system", content: "You are a helpful assistant for Pearly Whites Dental. Keep responses concise and suitable for SMS." },
+          { role: "user", content: Body }
+      ],
+    });
+
+    const aiResponse = completion.choices[0].message.content;
+
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message(aiResponse);
+
+    reply.type('text/xml').send(twiml.toString());
+  } catch (error) {
+    request.log.error(error);
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message("I'm sorry, I'm having trouble processing your request right now.");
+    reply.type('text/xml').send(twiml.toString());
+  }
 });
 
 // WebSocket Handler
