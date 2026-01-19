@@ -17,6 +17,7 @@ const {
   ELEVENLABS_VOICE_ID,
   TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN,
+  TWILIO_RECORD_CALLS,
   SMTP_HOST,
   SMTP_PORT,
   SMTP_USER,
@@ -96,7 +97,7 @@ fastify.get('/', async (request, reply) => {
 fastify.all('/incoming', async (request, reply) => {
   // Start recording the call explicitly if CallSid is present
   const callSid = request.body?.CallSid || request.query?.CallSid;
-  if (callSid && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+  if (TWILIO_RECORD_CALLS === 'true' && callSid && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
       try {
           await twilioClient.calls(callSid)
             .recordings
@@ -105,7 +106,7 @@ fastify.all('/incoming', async (request, reply) => {
             });
           console.log(`Recording started for ${callSid}`);
       } catch (err) {
-          console.error(`Failed to start recording for ${callSid}:`, err);
+          console.log(`Recording not started for ${callSid}:`, err?.code || err?.message || err);
       }
   }
 
@@ -154,7 +155,6 @@ fastify.register(async (fastify) => {
     console.log('Client connected to media-stream');
     if (!connection.socket) {
       console.error('Error: connection.socket is undefined. connection keys:', Object.keys(connection));
-      // Fallback if connection is the socket itself (unlikely in v11 but possible in misconfig)
       if (connection.on) {
           console.log('connection seems to be the socket itself');
           connection.socket = connection; 
@@ -178,6 +178,7 @@ fastify.register(async (fastify) => {
     });
 
     let streamSid = null;
+    let awaitingResponse = false;
 
     // Open Events
     openAiWs.on('open', () => {
@@ -267,28 +268,28 @@ fastify.register(async (fastify) => {
     openAiWs.on('message', (data) => {
       try {
         const event = JSON.parse(data);
-        // Log interesting events
         if (event.type === 'session.updated') {
             console.log('OpenAI Session Updated');
         } else if (event.type === 'input_audio_buffer.speech_started') {
             console.log('OpenAI VAD: Speech Started');
-            // Clear ElevenLabs buffer if user interrupts?
-            if (elevenLabsWs.readyState === WebSocket.OPEN) {
-                 elevenLabsWs.send(JSON.stringify({ text: " " })); // Send space to flush/reset? Or maybe strict handling
-            }
         } else if (event.type === 'input_audio_buffer.speech_stopped') {
             console.log('OpenAI VAD: Speech Stopped');
+            if (openAiWs.readyState === WebSocket.OPEN && !awaitingResponse) {
+              awaitingResponse = true;
+              openAiWs.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+              openAiWs.send(JSON.stringify({ type: 'response.create' }));
+            }
         } else if (event.type === 'response.created') {
             console.log('OpenAI Response Created');
         } else if (event.type === 'response.done') {
             console.log('OpenAI Response Done:', event.response?.status);
+            awaitingResponse = false;
         } else if (event.type === 'error') {
             console.error('OpenAI Error Event:', event.error);
         }
 
         if (event.type === 'response.text.delta') {
-          // Streaming text from OpenAI -> Send to ElevenLabs
-          process.stdout.write(`[Text Delta]: ${event.delta}\n`); // Log text
+          process.stdout.write(`[Text Delta]: ${event.delta}\n`);
           if (elevenLabsWs.readyState === WebSocket.OPEN) {
             elevenLabsWs.send(JSON.stringify({
               text: event.delta,
