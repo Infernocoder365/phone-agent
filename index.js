@@ -152,8 +152,16 @@ fastify.post('/incoming-sms', async (request, reply) => {
 fastify.register(async (fastify) => {
   fastify.get('/media-stream', { websocket: true }, (connection, req) => {
     console.log('Client connected to media-stream');
+    if (!connection.socket) {
+      console.error('Error: connection.socket is undefined. connection keys:', Object.keys(connection));
+      // Fallback if connection is the socket itself (unlikely in v11 but possible in misconfig)
+      if (connection.on) {
+          console.log('connection seems to be the socket itself');
+          connection.socket = connection; 
+      }
+    }
 
-    const openAiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', {
+    const openAiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-5-realtime-preview-2024-10-01', {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "OpenAI-Beta": "realtime=v1"
