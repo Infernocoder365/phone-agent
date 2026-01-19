@@ -193,6 +193,14 @@ fastify.register(async (fastify) => {
       openAiWs.send(JSON.stringify(sessionUpdate));
     });
 
+    openAiWs.on('error', (error) => {
+      console.error('OpenAI WebSocket error:', error);
+    });
+
+    openAiWs.on('close', (code, reason) => {
+      console.log(`OpenAI WebSocket closed: ${code} - ${reason}`);
+    });
+
     elevenLabsWs.on('open', () => {
       console.log('Connected to ElevenLabs');
       // Send initial config to ElevenLabs
@@ -206,6 +214,14 @@ fastify.register(async (fastify) => {
           chunk_length_schedule: [50] // Lower latency
         }
       }));
+    });
+
+    elevenLabsWs.on('error', (error) => {
+      console.error('ElevenLabs WebSocket error:', error);
+    });
+
+    elevenLabsWs.on('close', (code, reason) => {
+      console.log(`ElevenLabs WebSocket closed: ${code} - ${reason}`);
     });
 
     // Handle Twilio Messages
