@@ -161,7 +161,7 @@ fastify.register(async (fastify) => {
       }
     }
 
-    const openAiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-5-realtime-preview-2024-10-01', {
+    const openAiWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "OpenAI-Beta": "realtime=v1"
@@ -267,9 +267,28 @@ fastify.register(async (fastify) => {
     openAiWs.on('message', (data) => {
       try {
         const event = JSON.parse(data);
-        
+        // Log interesting events
+        if (event.type === 'session.updated') {
+            console.log('OpenAI Session Updated');
+        } else if (event.type === 'input_audio_buffer.speech_started') {
+            console.log('OpenAI VAD: Speech Started');
+            // Clear ElevenLabs buffer if user interrupts?
+            if (elevenLabsWs.readyState === WebSocket.OPEN) {
+                 elevenLabsWs.send(JSON.stringify({ text: " " })); // Send space to flush/reset? Or maybe strict handling
+            }
+        } else if (event.type === 'input_audio_buffer.speech_stopped') {
+            console.log('OpenAI VAD: Speech Stopped');
+        } else if (event.type === 'response.created') {
+            console.log('OpenAI Response Created');
+        } else if (event.type === 'response.done') {
+            console.log('OpenAI Response Done:', event.response?.status);
+        } else if (event.type === 'error') {
+            console.error('OpenAI Error Event:', event.error);
+        }
+
         if (event.type === 'response.text.delta') {
           // Streaming text from OpenAI -> Send to ElevenLabs
+          process.stdout.write(`[Text Delta]: ${event.delta}\n`); // Log text
           if (elevenLabsWs.readyState === WebSocket.OPEN) {
             elevenLabsWs.send(JSON.stringify({
               text: event.delta,
