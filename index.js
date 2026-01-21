@@ -157,8 +157,9 @@ fastify.register(async (fastify) => {
     console.log('[Endpoint] /media-stream WebSocket connected');
     if (!connection.socket) {
       console.error('[Error] connection.socket is undefined in /media-stream');
+      // Attempt to fix using connection as socket if possible
       if (connection.on) {
-          console.log('connection seems to be the socket itself');
+          console.log('[Debug] connection seems to be the socket itself, using it.');
           connection.socket = connection; 
       }
     }
@@ -240,14 +241,15 @@ fastify.register(async (fastify) => {
     // Handle Twilio Messages
     connection.socket.on('message', (message) => {
       try {
-        const data = JSON.parse(message);
+        const data = JSON.parse(message.toString());
         
         switch (data.event) {
           case 'start':
             streamSid = data.start.streamSid;
-            console.log(`Stream started: ${streamSid}`);
+            console.log(`[Twilio] Stream started: ${streamSid}`);
             break;
           case 'media':
+            // console.log('[Twilio] Received audio chunk'); // Verbose logging
             // Send audio to OpenAI
             // OpenAI Realtime supports 'input_audio_buffer.append'
             if (openAiWs.readyState === WebSocket.OPEN) {
@@ -255,16 +257,18 @@ fastify.register(async (fastify) => {
                 type: 'input_audio_buffer.append',
                 audio: data.media.payload // Twilio sends base64 mulaw
               }));
+            } else {
+              console.log('[Twilio] Received audio but OpenAI not connected');
             }
             break;
           case 'stop':
-            console.log('Stream stopped');
+            console.log('[Twilio] Stream stopped');
             if (openAiWs.readyState === WebSocket.OPEN) openAiWs.close();
             if (elevenLabsWs.readyState === WebSocket.OPEN) elevenLabsWs.close();
             break;
         }
       } catch (error) {
-        console.error('Error processing Twilio message:', error);
+        console.error('[Twilio] Error processing message:', error);
       }
     });
 
