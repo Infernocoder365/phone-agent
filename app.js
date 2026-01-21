@@ -14,11 +14,16 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 
 const app = express();
 ExpressWs(app);
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
 app.post('/incoming', (req, res) => {
   try {
+    const from = req.body.From;
+    const to = req.body.To;
+    console.log(`Incoming call from ${from} to ${to}`.green);
+
     const response = new VoiceResponse();
     const connect = response.connect();
     connect.stream({ url: `wss://${process.env.SERVER}/connection` });
