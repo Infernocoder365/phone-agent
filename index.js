@@ -95,6 +95,7 @@ fastify.get('/', async (request, reply) => {
 
 // Twilio Incoming Call Webhook
 fastify.all('/incoming', async (request, reply) => {
+  console.log(`[Endpoint] /incoming hit via ${request.method}`);
   // Start recording the call explicitly if CallSid is present
   const callSid = request.body?.CallSid || request.query?.CallSid;
   if (TWILIO_RECORD_CALLS === 'true' && callSid && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
@@ -123,8 +124,9 @@ fastify.all('/incoming', async (request, reply) => {
 
 // Twilio Incoming SMS Webhook
 fastify.post('/incoming-sms', async (request, reply) => {
+  console.log(`[Endpoint] /incoming-sms hit`);
   const { Body, From } = request.body;
-  console.log(`Received SMS from ${From}: ${Body}`);
+  console.log(`[SMS] Received from ${From}: ${Body}`);
 
   try {
     const completion = await openai.chat.completions.create({
@@ -152,9 +154,9 @@ fastify.post('/incoming-sms', async (request, reply) => {
 // WebSocket Handler
 fastify.register(async (fastify) => {
   fastify.get('/media-stream', { websocket: true }, (connection, req) => {
-    console.log('Client connected to media-stream');
+    console.log('[Endpoint] /media-stream WebSocket connected');
     if (!connection.socket) {
-      console.error('Error: connection.socket is undefined. connection keys:', Object.keys(connection));
+      console.error('[Error] connection.socket is undefined in /media-stream');
       if (connection.on) {
           console.log('connection seems to be the socket itself');
           connection.socket = connection; 
@@ -203,15 +205,16 @@ fastify.register(async (fastify) => {
     });
 
     openAiWs.on('error', (error) => {
-      console.error('OpenAI WebSocket error:', error);
+      console.error('[OpenAI WebSocket Error]', error);
+      console.error('Error Stack:', error.stack); // Added for debug
     });
 
     openAiWs.on('close', (code, reason) => {
-      console.log(`OpenAI WebSocket closed: ${code} - ${reason}`);
+      console.log(`[OpenAI WebSocket Closed] Code: ${code}, Reason: ${reason}`);
     });
 
     elevenLabsWs.on('open', () => {
-      console.log('Connected to ElevenLabs');
+      console.log('[ElevenLabs] Connected');
       // Send initial config to ElevenLabs
       elevenLabsWs.send(JSON.stringify({
         text: " ", // Init
@@ -226,11 +229,12 @@ fastify.register(async (fastify) => {
     });
 
     elevenLabsWs.on('error', (error) => {
-      console.error('ElevenLabs WebSocket error:', error);
+      console.error('[ElevenLabs WebSocket Error]', error);
+      console.error('Error Stack:', error.stack);
     });
 
     elevenLabsWs.on('close', (code, reason) => {
-      console.log(`ElevenLabs WebSocket closed: ${code} - ${reason}`);
+      console.log(`[ElevenLabs WebSocket Closed] Code: ${code}, Reason: ${reason}`);
     });
 
     // Handle Twilio Messages
