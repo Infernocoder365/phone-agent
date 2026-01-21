@@ -58,7 +58,7 @@ app.ws('/connection', (ws) => {
         // Set RECORDING_ENABLED='true' in .env to record calls
         recordingService(ttsService, callSid).then(() => {
           console.log(`Twilio -> Starting Media Stream for ${streamSid}`.underline.red);
-          const initialGreeting = process.env.AGENT_INITIAL_GREETING || process.env.INITIAL_GREETING || 'Hello! I understand you\'re looking for a pair of AirPods, is that correct?';
+          const initialGreeting = process.env.AGENT_INITIAL_GREETING || process.env.INITIAL_GREETING || 'Hello! You\'ve reached the personal AI assistant. How can I help you today?';
           ttsService.generate({partialResponseIndex: null, partialResponse: initialGreeting}, 0);
         });
       } else if (msg.event === 'media') {
