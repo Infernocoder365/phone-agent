@@ -176,7 +176,7 @@ fastify.register(async (fastify) => {
     ];
 
     // ElevenLabs STT WebSocket (Scribe v2)
-    const elevenLabsSttWs = new WebSocket(`wss://api.elevenlabs.io/v1/speech-to-text?model_id=scribe_v2&audio_format=ulaw_8000`, {
+    const elevenLabsSttWs = new WebSocket(`wss://api.elevenlabs.io/v1/speech-to-text?model_id=scribe_v2_realtime&audio_format=ulaw_8000`, {
       headers: { "xi-api-key": ELEVENLABS_API_KEY }
     });
 
@@ -196,6 +196,9 @@ fastify.register(async (fastify) => {
 
     elevenLabsSttWs.on('error', (error) => {
       console.error('[ElevenLabs STT Error]', error);
+      if (error.message && error.message.includes('403')) {
+          console.error('[ElevenLabs STT] 403 Forbidden: Check API Key and Model ID access. Ensure you have access to scribe_v2_realtime.');
+      }
     });
 
     elevenLabsSttWs.on('close', (code, reason) => {
