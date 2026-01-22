@@ -166,6 +166,7 @@ wss.on('connection', (connection, req) => {
 
   let streamSid = null;
   let openAiWs = null;
+  let hasActiveResponse = false;
 
   // Connect to OpenAI Realtime API
   try {
@@ -233,7 +234,10 @@ wss.on('connection', (connection, req) => {
              connection.send(JSON.stringify(clearMessage));
              
              // Also tell OpenAI to cancel current response if any
-             openAiWs.send(JSON.stringify({ type: 'response.cancel' }));
+             if (hasActiveResponse && openAiWs.readyState === WebSocket.OPEN) {
+               openAiWs.send(JSON.stringify({ type: 'response.cancel' }));
+               hasActiveResponse = false;
+             }
            }
            break;
 
@@ -262,7 +266,13 @@ wss.on('connection', (connection, req) => {
             openAiWs.send(JSON.stringify(toolOutput));
 
             // Trigger another response from AI based on the tool output
+            hasActiveResponse = true;
             openAiWs.send(JSON.stringify({ type: 'response.create' }));
+            break;
+
+        case 'response.completed':
+        case 'response.done':
+            hasActiveResponse = false;
             break;
 
         case 'error':
