@@ -195,8 +195,7 @@ wss.on('connection', (connection, req) => {
     const sessionUpdate = {
       type: 'session.update',
       session: {
-        output_modalities: ['audio'],
-        voice: 'alloy', // Options: alloy, echo, shimmer
+        voice: 'shimmer', // Options: alloy, echo, shimmer
         instructions: process.env.AGENT_SYSTEM_PROMPT || 'You are a helpful AI assistant. Keep your responses concise and conversational.',
         input_audio_format: 'g711_ulaw',
         output_audio_format: 'g711_ulaw',
@@ -222,7 +221,7 @@ wss.on('connection', (connection, req) => {
           break;
         case 'response.done':
           responseActive = false;
-          console.log(JSON.stringify(event.response.status_details.error));
+          console.log("done:", JSON.stringify(event.response.status_details.error));
           break;
         case 'response.output_audio.delta':
           // Relay audio back to Twilio
