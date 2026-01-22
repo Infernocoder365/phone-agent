@@ -195,6 +195,7 @@ wss.on('connection', (connection, req) => {
     const sessionUpdate = {
       type: 'session.update',
       session: {
+        output_modalities: ['audio'],
         voice: 'alloy', // Options: alloy, echo, shimmer
         instructions: process.env.AGENT_SYSTEM_PROMPT || 'You are a helpful AI assistant. Keep your responses concise and conversational.',
         input_audio_format: 'g711_ulaw',
@@ -208,12 +209,13 @@ wss.on('connection', (connection, req) => {
       }
     };
     openAiWs.send(JSON.stringify(sessionUpdate));
+    openAiWs.send(JSON.stringify({ type: 'response.create' }));
   });
 
   openAiWs.on('message', async (data) => {
     try {
       const event = JSON.parse(data);
-
+      console.log(event);
       switch (event.type) {
         case 'response.created':
           responseActive = true;
@@ -221,7 +223,7 @@ wss.on('connection', (connection, req) => {
         case 'response.done':
           responseActive = false;
           break;
-        case 'response.audio.delta':
+        case 'response.output_audio.delta':
           // Relay audio back to Twilio
           if (event.delta && streamSid) {
             const audioPayload = event.delta;
