@@ -1,6 +1,6 @@
 # Twello AI Agent
 
-This project is an AI-powered voice assistant that integrates OpenAI Realtime API, ElevenLabs for Text-to-Speech (TTS), and Twilio for telephony. It also includes email functionality using Nodemailer.
+This project is an AI-powered voice assistant that integrates OpenAI Chat Completions API, ElevenLabs for Text-to-Speech (TTS), and Twilio for telephony. It also includes email functionality using Nodemailer.
 
 ## Prerequisites
 
