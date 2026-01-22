@@ -222,6 +222,7 @@ wss.on('connection', (connection, req) => {
           break;
         case 'response.done':
           responseActive = false;
+          console.log(JSON.stringify(event.response.status_details.error));
           break;
         case 'response.output_audio.delta':
           // Relay audio back to Twilio
