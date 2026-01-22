@@ -25,7 +25,12 @@ if (!OPENAI_API_KEY) {
 }
 
 // Initialize Twilio Client
-const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+let twilioClient = null;
+if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_ACCOUNT_SID.startsWith('AC')) {
+  twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+} else {
+  console.warn('[Twilio] Missing or invalid credentials; Twilio features will be disabled until configured.');
+}
 
 // Initialize Express
 const app = express();
@@ -93,7 +98,7 @@ app.all('/incoming', async (req, res) => {
   
   // Start recording if enabled
   const callSid = req.body?.CallSid || req.query?.CallSid;
-  if (TWILIO_RECORD_CALLS === 'true' && callSid && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+  if (TWILIO_RECORD_CALLS === 'true' && callSid && twilioClient) {
     try {
       await twilioClient.calls(callSid)
         .recordings
@@ -166,7 +171,7 @@ wss.on('connection', (connection, req) => {
 
   let streamSid = null;
   let openAiWs = null;
-  let hasActiveResponse = false;
+  let responseActive = false;
 
   // Connect to OpenAI Realtime API
   try {
@@ -195,7 +200,9 @@ wss.on('connection', (connection, req) => {
         input_audio_format: 'g711_ulaw',
         output_audio_format: 'g711_ulaw',
         turn_detection: {
-            type: 'server_vad'
+            type: 'server_vad',
+            interrupt_response: true,
+            create_response: true
         },
         tools: TOOLS
       }
@@ -208,6 +215,12 @@ wss.on('connection', (connection, req) => {
       const event = JSON.parse(data);
 
       switch (event.type) {
+        case 'response.created':
+          responseActive = true;
+          break;
+        case 'response.done':
+          responseActive = false;
+          break;
         case 'response.audio.delta':
           // Relay audio back to Twilio
           if (event.delta && streamSid) {
@@ -233,10 +246,9 @@ wss.on('connection', (connection, req) => {
              };
              connection.send(JSON.stringify(clearMessage));
              
-             // Also tell OpenAI to cancel current response if any
-             if (hasActiveResponse && openAiWs.readyState === WebSocket.OPEN) {
+             // Also tell OpenAI to cancel current response only if active
+             if (responseActive) {
                openAiWs.send(JSON.stringify({ type: 'response.cancel' }));
-               hasActiveResponse = false;
              }
            }
            break;
@@ -266,13 +278,7 @@ wss.on('connection', (connection, req) => {
             openAiWs.send(JSON.stringify(toolOutput));
 
             // Trigger another response from AI based on the tool output
-            hasActiveResponse = true;
             openAiWs.send(JSON.stringify({ type: 'response.create' }));
-            break;
-
-        case 'response.completed':
-        case 'response.done':
-            hasActiveResponse = false;
             break;
 
         case 'error':
