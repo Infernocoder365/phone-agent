@@ -175,7 +175,7 @@ wss.on('connection', (connection, req) => {
 
   // Connect to OpenAI Realtime API
   try {
-    const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
+    const url = 'wss://api.openai.com/v1/realtime?model=gpt-realtime';
     openAiWs = new WebSocket(url, {
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
